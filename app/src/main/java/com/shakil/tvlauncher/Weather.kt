@@ -51,12 +51,17 @@ object WeatherRepo {
 
     const val REFRESH_MS = 30 * 60 * 1000L
 
+    /** Last known weather in memory, so a new home screen can show it before any disk read. */
+    @Volatile
+    var cachedInMemory: Weather? = null
+        private set
+
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("weather", Context.MODE_PRIVATE)
 
     fun cached(ctx: Context): Weather? {
         val p = prefs(ctx)
         val json = p.getString("json", null) ?: return null
-        return parse(json, p.getLong("at", 0L))
+        return parse(json, p.getLong("at", 0L))?.also { cachedInMemory = it }
     }
 
     /** Network call: run off the main thread. Returns null if offline or on error. */
@@ -71,6 +76,7 @@ object WeatherRepo {
                 val now = System.currentTimeMillis()
                 val w = parse(json, now) ?: return null
                 prefs(ctx).edit().putString("json", json).putLong("at", now).apply()
+                cachedInMemory = w
                 w
             } finally {
                 conn.disconnect()

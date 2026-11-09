@@ -19,6 +19,9 @@
     <string name="ethernet_connected">Ethernet connected</string>
     <string name="connected">Connected</string>
     <string name="offline">Offline</string>
+    <string name="no_internet">No internet</string>
+    <string name="wifi">Wi-Fi</string>
+    <string name="ethernet">Ethernet</string>
     <string name="remotes">Remotes</string>
     <string name="remotes_sub">Bluetooth devices</string>
     <string name="picture_sound">Picture</string>

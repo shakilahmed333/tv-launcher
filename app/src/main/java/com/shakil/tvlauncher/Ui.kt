@@ -34,12 +34,12 @@ object Ui {
     fun focusRing(ctx: Context, radius: Float): Drawable {
         val sheen = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0x40FFFFFF, 0x00FFFFFF, 0x00FFFFFF),
+            intArrayOf(0x33FFFFFF, 0x00FFFFFF, 0x00FFFFFF),
         ).apply { cornerRadius = radius }
         val ring = GradientDrawable().apply {
             cornerRadius = radius
             setColor(Color.TRANSPARENT)
-            setStroke(dp(ctx, 2), ctx.getColor(R.color.text))
+            setStroke(dp(ctx, 3), ctx.getColor(R.color.accent))
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), LayerDrawable(arrayOf<Drawable>(sheen, ring)))

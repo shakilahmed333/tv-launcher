@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Bordeaux Night palette -->
+<!-- Light theme: frosted white glass over a nature photo, wine accent. -->
 <resources>
-    <color name="bg">#170A0F</color>
-    <color name="surface">#12FFFFFF</color>
-    <color name="line">#1AFFFFFF</color>
-    <color name="tile">#3A1A24</color>
-    <color name="text">#FAF3F4</color>
-    <color name="muted">#BFA6AC</color>
-    <color name="accent">#E07A93</color>
-    <color name="accent2">#E8B98A</color>
-    <color name="on_accent">#24070F</color>
-    <color name="panel">#24121A</color>
+    <color name="bg">#EDE7E3</color>
+    <color name="glass">#D9FFFFFF</color>
+    <color name="glass_line">#99FFFFFF</color>
+    <color name="surface">#0F000000</color>
+    <color name="line">#1A000000</color>
+    <color name="tile">#FFFFFF</color>
+    <color name="panel">#F7FFFFFF</color>
+
+    <color name="text">#1D1B20</color>
+    <color name="muted">#5E5862</color>
+    <color name="on_photo">#FFFFFF</color>
+    <color name="photo_shadow">#73000000</color>
+
+    <color name="accent">#8E2C48</color>
+    <color name="accent2">#C98B5A</color>
+    <color name="on_accent">#FFFFFF</color>
+
+    <color name="status_ok">#2EAD5B</color>
+    <color name="status_warn">#E3A21A</color>
+    <color name="status_off">#D64545</color>
 </resources>

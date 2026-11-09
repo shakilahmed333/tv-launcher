@@ -78,7 +78,7 @@ class ControlPanelActivity : Activity() {
     private fun setUpVolume() {
         volFill = findViewById(R.id.volFill)
         volValue = findViewById(R.id.volumeValue)
-        findViewById<View>(R.id.volTrack).background = Ui.rounded(0x24FFFFFF, dp(4).toFloat())
+        findViewById<View>(R.id.volTrack).background = Ui.rounded(0x1F000000, dp(4).toFloat())
         volFill.background = Ui.rounded(getColor(R.color.accent), dp(4).toFloat())
         volFill.pivotX = 0f
 

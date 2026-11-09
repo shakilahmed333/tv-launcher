@@ -1,19 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sizes are in dp for a 1080p TV (about 960 x 540 dp). -->
+<!-- Light home screen over a nature photo. Sizes in dp for a 1080p TV (about 960 x 540 dp). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
     android:clipChildren="false">
 
-    <!-- Soft light that takes the colour of the focused app. -->
+    <!-- 1. Photo of the day -->
+    <ImageView
+        android:id="@+id/wallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <!-- 2. Weather tint + animations -->
+    <com.shakil.tvlauncher.WeatherView
+        android:id="@+id/weatherFx"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
+    <!-- 3. Soft shade at the top for the white text, light wash at the bottom for the app rows -->
     <View
-        android:id="@+id/glow"
-        android:layout_width="640dp"
-        android:layout_height="480dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="-200dp"
-        android:layout_marginEnd="-120dp"
+        android:id="@+id/topShade"
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:layout_gravity="top"
+        android:importantForAccessibility="no" />
+
+    <View
+        android:id="@+id/bottomWash"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_gravity="bottom"
         android:importantForAccessibility="no" />
 
     <ScrollView
@@ -26,17 +46,18 @@
         android:scrollbars="none">
 
         <LinearLayout
+            android:id="@+id/content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:orientation="vertical"
             android:paddingStart="48dp"
-            android:paddingTop="28dp"
+            android:paddingTop="26dp"
             android:paddingEnd="48dp"
             android:paddingBottom="40dp">
 
-            <!-- Top bar -->
+            <!-- Greeting + status -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -55,15 +76,59 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-medium"
-                        android:textColor="@color/text"
-                        android:textSize="16sp" />
+                        android:letterSpacing="-0.01"
+                        android:shadowColor="@color/photo_shadow"
+                        android:shadowDy="2"
+                        android:shadowRadius="12"
+                        android:textColor="@color/on_photo"
+                        android:textSize="28sp" />
 
-                    <TextView
+                    <TextClock
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/subtitle"
-                        android:textColor="@color/muted"
+                        android:alpha="0.92"
+                        android:format12Hour="EEEE, d MMMM"
+                        android:format24Hour="EEEE, d MMMM"
+                        android:shadowColor="@color/photo_shadow"
+                        android:shadowDy="1"
+                        android:shadowRadius="8"
+                        android:textColor="@color/on_photo"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Wi-Fi status pill -->
+                <LinearLayout
+                    android:id="@+id/netPill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/card"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="14dp">
+
+                    <View
+                        android:id="@+id/netDot"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp" />
+
+                    <ImageView
+                        android:id="@+id/netIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginStart="8dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_wifi" />
+
+                    <TextView
+                        android:id="@+id/netText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/text"
                         android:textSize="11sp" />
                 </LinearLayout>
 
@@ -91,176 +156,154 @@
                     android:textSize="16sp" />
             </LinearLayout>
 
-            <!-- Clock card + preview of the focused app -->
+            <!-- Big clock + weather card -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="150dp"
-                android:layout_marginTop="20dp"
+                android:layout_height="160dp"
+                android:layout_marginTop="10dp"
+                android:clipChildren="false"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <LinearLayout
-                    android:layout_width="460dp"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/card"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="22dp">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <TextClock
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-thin"
-                            android:format12Hour="h:mm"
-                            android:format24Hour="H:mm"
-                            android:includeFontPadding="false"
-                            android:letterSpacing="-0.03"
-                            android:textColor="@color/text"
-                            android:textSize="58sp" />
-
-                        <TextClock
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:format12Hour="EEEE, d MMMM"
-                            android:format24Hour="EEEE, d MMMM"
-                            android:textColor="@color/muted"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="96dp"
-                        android:layout_marginStart="20dp"
-                        android:layout_marginEnd="20dp"
-                        android:background="@color/line" />
-
-                    <LinearLayout
-                        android:id="@+id/weatherBox"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <ImageView
-                                android:id="@+id/weatherIcon"
-                                android:layout_width="30dp"
-                                android:layout_height="30dp"
-                                android:importantForAccessibility="no"
-                                android:src="@drawable/ic_cloud" />
-
-                            <TextView
-                                android:id="@+id/weatherTemp"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:fontFamily="sans-serif-light"
-                                android:includeFontPadding="false"
-                                android:text="--°"
-                                android:textColor="@color/text"
-                                android:textSize="32sp" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:id="@+id/weatherLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
-                            android:maxLines="1"
-                            android:text="@string/weather_loading"
-                            android:textColor="@color/text"
-                            android:textSize="12sp" />
-
-                        <LinearLayout
-                            android:id="@+id/weatherChips"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:orientation="horizontal" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <FrameLayout
-                    android:id="@+id/previewPanel"
+                <TextClock
                     android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="16dp"
-                    android:layout_weight="1">
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-thin"
+                    android:format12Hour="h:mm"
+                    android:format24Hour="H:mm"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.04"
+                    android:shadowColor="@color/photo_shadow"
+                    android:shadowDy="3"
+                    android:shadowRadius="18"
+                    android:textColor="@color/on_photo"
+                    android:textSize="104sp" />
+
+                <LinearLayout
+                    android:id="@+id/weatherCard"
+                    android:layout_width="300dp"
+                    android:layout_height="140dp"
+                    android:background="@drawable/card"
+                    android:orientation="vertical"
+                    android:paddingStart="20dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="18dp"
+                    android:paddingBottom="14dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="bottom"
-                        android:orientation="vertical"
-                        android:padding="22dp">
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:id="@+id/weatherIcon"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_partly" />
 
                         <TextView
-                            android:id="@+id/previewName"
+                            android:id="@+id/weatherTemp"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:fontFamily="sans-serif-black"
-                            android:maxLines="1"
-                            android:textColor="#FFFFFF"
-                            android:textSize="30sp" />
+                            android:layout_marginStart="10dp"
+                            android:fontFamily="sans-serif-light"
+                            android:includeFontPadding="false"
+                            android:text="--°"
+                            android:textColor="@color/text"
+                            android:textSize="40sp" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:alpha="0.85"
-                            android:text="@string/open_hint"
-                            android:textColor="#FFFFFF"
-                            android:textSize="11sp" />
+                            android:fontFamily="sans-serif-medium"
+                            android:text="@string/city_name"
+                            android:textColor="@color/accent"
+                            android:textSize="12sp" />
                     </LinearLayout>
-                </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/weatherLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:maxLines="1"
+                        android:text="@string/weather_loading"
+                        android:textColor="@color/text"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:id="@+id/weatherChips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal" />
+                </LinearLayout>
             </LinearLayout>
 
+            <!-- Most used -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="22dp"
                 android:fontFamily="sans-serif-medium"
+                android:shadowColor="@color/photo_shadow"
+                android:shadowDy="1"
+                android:shadowRadius="8"
                 android:text="@string/most_used"
-                android:textColor="@color/accent"
-                android:textSize="13sp" />
+                android:textColor="@color/on_photo"
+                android:textSize="15sp" />
 
             <LinearLayout
                 android:id="@+id/favRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 android:orientation="horizontal" />
 
+            <!-- Name of the focused app, slides under the tile -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="26dp"
+                android:clipChildren="false">
+
+                <TextView
+                    android:id="@+id/focusLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/text"
+                    android:textSize="13sp" />
+            </FrameLayout>
+
+            <!-- All apps -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="8dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/all_apps"
-                android:textColor="@color/accent"
-                android:textSize="13sp" />
+                android:textColor="@color/text"
+                android:textSize="15sp" />
 
             <GridLayout
                 android:id="@+id/grid"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:clipChildren="false"
                 android:clipToPadding="false"
                 android:columnCount="8"

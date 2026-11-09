@@ -11,8 +11,8 @@ android {
         applicationId = "com.shakil.tvlauncher"
         minSdk = 28
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.7"
+        versionCode = 8
+        versionName = "0.8"
     }
 
     // A fixed key, kept in the repo, so every new build can be installed

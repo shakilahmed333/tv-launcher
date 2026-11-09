@@ -77,7 +77,7 @@ class VolumeHud(private val service: AccessibilityService) {
         pill.addView(icon, LinearLayout.LayoutParams(dp(18), dp(18)))
 
         val track = FrameLayout(service)
-        track.background = Ui.rounded(0x24FFFFFF, dp(3).toFloat())
+        track.background = Ui.rounded(0x1F000000, dp(3).toFloat())
         fill = View(service)
         fill.background = Ui.rounded(service.getColor(R.color.accent), dp(3).toFloat())
         fill.pivotX = 0f

@@ -38,6 +38,7 @@ class HomeButtonService : AccessibilityService() {
     override fun onServiceConnected() {
         Log.i(TAG, "Service connected: opening launcher. Volume fixed=${Volume.isFixed(this)}")
         hud = VolumeHud(this)
+        AppCache.warm(this) // Load apps and wallpaper now, so the home screen appears filled.
         openLauncher()
     }
 

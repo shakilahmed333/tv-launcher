@@ -42,6 +42,23 @@ object AppRepo {
     }
 }
 
+/**
+ * The app list kept in memory, so the home screen fills instantly after the first
+ * load. The Home-button service warms it at startup, before the launcher opens.
+ */
+object AppCache {
+    @Volatile
+    var apps: List<AppEntry>? = null
+
+    fun warm(ctx: Context) {
+        val app = ctx.applicationContext
+        Thread {
+            if (apps == null) apps = AppRepo.load(app)
+            WallpaperRepo.loadCached(app)
+        }.start()
+    }
+}
+
 /** Counts how often each app is opened from this launcher, for the "Most used" row. */
 class Usage(ctx: Context) {
     private val prefs = ctx.getSharedPreferences("usage", Context.MODE_PRIVATE)

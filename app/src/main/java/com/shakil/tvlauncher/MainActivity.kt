@@ -1,15 +1,16 @@
 package com.shakil.tvlauncher
 
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
-import android.graphics.drawable.StateListDrawable
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,7 +20,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
-import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
@@ -32,42 +32,40 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
 
     private val io = Executors.newSingleThreadExecutor()
-    private val net = Executors.newSingleThreadExecutor() // Weather; never delays the app list.
+    private val net = Executors.newSingleThreadExecutor() // Weather + wallpaper; never delays the app list.
     private val ui = Handler(Looper.getMainLooper())
-    private val ease = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
 
     private lateinit var usage: Usage
     private lateinit var layoutPrefs: LayoutPrefs
     private lateinit var scroll: ScrollView
-    private var apps: List<AppEntry> = emptyList()
-    private var overlay: View? = null
-    private var returnFocus: View? = null
     private lateinit var greeting: TextView
     private lateinit var favRow: LinearLayout
     private lateinit var grid: GridLayout
-    private lateinit var previewName: TextView
+    private lateinit var focusLabel: TextView
+    private lateinit var wallpaper: ImageView
+    private lateinit var weatherFx: WeatherView
     private lateinit var weatherIcon: ImageView
     private lateinit var weatherTemp: TextView
     private lateinit var weatherLabel: TextView
     private lateinit var weatherChips: LinearLayout
+    private lateinit var netDot: View
+    private lateinit var netIcon: ImageView
+    private lateinit var netText: TextView
+
+    private var apps: List<AppEntry> = emptyList()
+    private var overlay: View? = null
+    private var returnFocus: View? = null
+    private var lastKey = ""
     private var weatherAt = 0L
+    private var shownWallpaper: Bitmap? = null
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
+
     private val weatherTick = object : Runnable {
         override fun run() {
             refreshWeather()
             ui.postDelayed(this, WeatherRepo.REFRESH_MS)
         }
     }
-
-    private val panelBg = GradientDrawable()
-    private val glowBg = GradientDrawable()
-    private var panelColor = 0
-    private var glowColor = 0
-    private var panelAnim: ValueAnimator? = null
-    private var glowAnim: ValueAnimator? = null
-
-    private var lastKey = ""
-    private var textColor = 0
-    private var tileColor = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,59 +74,172 @@ class MainActivity : Activity() {
         usage = Usage(this)
         layoutPrefs = LayoutPrefs(this)
         scroll = findViewById(R.id.scroll)
-        textColor = getColor(R.color.text)
-        tileColor = getColor(R.color.tile)
         greeting = findViewById(R.id.greeting)
         favRow = findViewById(R.id.favRow)
         grid = findViewById(R.id.grid)
-        previewName = findViewById(R.id.previewName)
+        focusLabel = findViewById(R.id.focusLabel)
+        wallpaper = findViewById(R.id.wallpaper)
+        weatherFx = findViewById(R.id.weatherFx)
         weatherIcon = findViewById(R.id.weatherIcon)
         weatherTemp = findViewById(R.id.weatherTemp)
         weatherLabel = findViewById(R.id.weatherLabel)
         weatherChips = findViewById(R.id.weatherChips)
+        netDot = findViewById(R.id.netDot)
+        netIcon = findViewById(R.id.netIcon)
+        netText = findViewById(R.id.netText)
 
-        panelColor = tileColor
-        panelBg.cornerRadius = dp(16).toFloat()
-        panelBg.setColor(panelColor)
-        val panel = findViewById<FrameLayout>(R.id.previewPanel)
-        panel.background = panelBg
-        panel.outlineProvider = ViewOutlineProvider.BACKGROUND
-        panel.clipToOutline = true
+        // Shades that keep text readable on any photo.
+        findViewById<View>(R.id.topShade).background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x59000000, 0x00000000),
+        )
+        findViewById<View>(R.id.bottomWash).background = GradientDrawable(
+            GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xF2F7F4F1.toInt(), 0xB3F7F4F1.toInt(), 0x00F7F4F1),
+        )
+        wallpaper.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xFF8FB3D9.toInt(), 0xFFE9D8C4.toInt()),
+        )
 
-        glowColor = Palette.withAlpha(getColor(R.color.accent), 0x30)
-        glowBg.gradientType = GradientDrawable.RADIAL_GRADIENT
-        glowBg.gradientRadius = dp(320).toFloat()
-        glowBg.colors = intArrayOf(glowColor, Color.TRANSPARENT)
-        findViewById<View>(R.id.glow).background = glowBg
-
-        val panelBtn = findViewById<View>(R.id.panelBtn)
-        panelBtn.foreground = focusRing(dp(17).toFloat())
-        panelBtn.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.12f) }
-        panelBtn.setOnClickListener { startActivity(Intent(this, ControlPanelActivity::class.java)) }
-
-        val settings = findViewById<View>(R.id.settingsBtn)
-        settings.foreground = focusRing(dp(17).toFloat())
-        settings.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.12f) }
-        settings.setOnClickListener {
+        for (id in intArrayOf(R.id.panelBtn, R.id.settingsBtn)) {
+            val b = findViewById<View>(id)
+            b.foreground = Ui.focusRing(this, dp(17).toFloat())
+            b.setOnFocusChangeListener { v, has -> Ui.animateFocus(this, v, has, 1.12f) }
+        }
+        findViewById<View>(R.id.panelBtn).setOnClickListener {
+            startActivity(Intent(this, ControlPanelActivity::class.java))
+        }
+        findViewById<View>(R.id.settingsBtn).setOnClickListener {
             startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+
+        // Fast start: show whatever is already in memory right away.
+        WallpaperRepo.bitmap?.let { setWallpaper(it, fade = false) }
+        WeatherRepo.cachedInMemory?.let { showWeather(it) }
+        AppCache.apps?.let { render(it) }
     }
 
     override fun onResume() {
         super.onResume()
         updateGreeting()
+        weatherFx.start()
+        watchNetwork()
         ui.removeCallbacks(weatherTick)
         ui.post(weatherTick)
+
         io.execute {
-            val apps = AppRepo.load(this)
-            ui.post { if (!isDestroyed) render(apps) }
+            val list = AppRepo.load(this)
+            AppCache.apps = list
+            ui.post { if (!isDestroyed) render(list) }
+        }
+        net.execute {
+            WallpaperRepo.loadCached(this)?.let { bmp -> ui.post { if (!isDestroyed) setWallpaper(bmp, fade = true) } }
+            WallpaperRepo.refreshIfStale(this)?.let { bmp -> ui.post { if (!isDestroyed) setWallpaper(bmp, fade = true) } }
         }
     }
 
     override fun onPause() {
         ui.removeCallbacks(weatherTick)
+        weatherFx.stop()
+        unwatchNetwork()
         super.onPause()
     }
+
+    override fun onDestroy() {
+        io.shutdownNow()
+        net.shutdownNow()
+        super.onDestroy()
+    }
+
+    /** Home pressed while we're already open: jump back to the top row. */
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        closeOverlay()
+        scroll.smoothScrollTo(0, 0)
+        favRow.getChildAt(0)?.requestFocus()
+    }
+
+    @Deprecated("Home screen: Back only closes menus here.")
+    override fun onBackPressed() {
+        if (overlay != null) closeOverlay()
+    }
+
+    // ---------------------------------------------------------------- wallpaper
+
+    /** Cross-fades to a new photo. */
+    private fun setWallpaper(bmp: Bitmap, fade: Boolean) {
+        if (bmp === shownWallpaper) return
+        shownWallpaper = bmp
+        wallpaper.setImageBitmap(bmp)
+        if (fade) {
+            wallpaper.alpha = 0f
+            wallpaper.animate().alpha(1f).setDuration(700).start()
+        }
+    }
+
+    // ---------------------------------------------------------------- greeting
+
+    private fun updateGreeting() {
+        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val part = when {
+            h < 5 -> "Good night"
+            h < 12 -> "Good morning"
+            h < 17 -> "Good afternoon"
+            else -> "Good evening"
+        }
+        greeting.text = "$part, ${getString(R.string.user_name)}"
+    }
+
+    // ---------------------------------------------------------------- Wi-Fi status
+
+    /** Live network status: green = online, amber = connected but no internet, red = offline. */
+    private fun watchNetwork() {
+        val cm = getSystemService(ConnectivityManager::class.java)
+        showNetwork(cm.activeNetwork?.let { cm.getNetworkCapabilities(it) })
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                ui.post { showNetwork(caps) }
+            }
+
+            override fun onLost(network: Network) {
+                ui.post { showNetwork(null) }
+            }
+        }
+        try {
+            cm.registerDefaultNetworkCallback(cb)
+            netCallback = cb
+        } catch (e: Exception) {
+            netCallback = null
+        }
+    }
+
+    private fun unwatchNetwork() {
+        val cb = netCallback ?: return
+        netCallback = null
+        try {
+            getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(cb)
+        } catch (e: Exception) {
+            // Already unregistered.
+        }
+    }
+
+    private fun showNetwork(caps: NetworkCapabilities?) {
+        val (color, text) = when {
+            caps == null -> getColor(R.color.status_off) to getString(R.string.offline)
+            !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ->
+                getColor(R.color.status_warn) to getString(R.string.no_internet)
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
+                getColor(R.color.status_ok) to getString(R.string.ethernet)
+            else -> getColor(R.color.status_ok) to getString(R.string.wifi)
+        }
+        netDot.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+        }
+        netIcon.imageTintList = ColorStateList.valueOf(if (caps == null) getColor(R.color.muted) else getColor(R.color.text))
+        netText.text = text
+        findViewById<View>(R.id.netPill).contentDescription = "Network: $text"
+    }
+
+    // ---------------------------------------------------------------- weather
 
     /** Shows the cached weather at once, then fetches fresh data if it's over 30 minutes old. */
     private fun refreshWeather() {
@@ -146,56 +257,26 @@ class MainActivity : Activity() {
     private fun showWeather(w: Weather) {
         if (w.fetchedAt == weatherAt) return
         weatherAt = w.fetchedAt
+        weatherFx.setWeather(w.code, w.isDay)
         weatherIcon.setImageResource(w.iconRes)
         weatherTemp.text = "${w.temp}°"
-        weatherLabel.text = "${w.label} · ${getString(R.string.city_name)}"
+        weatherLabel.text = w.label
 
         weatherChips.removeAllViews()
         w.upcoming.forEachIndexed { i, (time, temp) ->
             val chip = TextView(this)
             chip.text = "$time  $temp°"
-            chip.textSize = 10f
+            chip.textSize = 11f
             chip.setTextColor(getColor(R.color.muted))
-            chip.setPadding(dp(8), dp(4), dp(8), dp(4))
-            chip.background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(getColor(R.color.surface))
-            }
+            chip.setPadding(dp(9), dp(4), dp(9), dp(4))
+            chip.background = Ui.rounded(getColor(R.color.surface), dp(9).toFloat())
             val lp = LinearLayout.LayoutParams(-2, -2)
             if (i > 0) lp.marginStart = dp(6)
             weatherChips.addView(chip, lp)
         }
     }
 
-    /** Home pressed while we're already open: jump back to the top row. */
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        closeOverlay()
-        scroll.smoothScrollTo(0, 0)
-        favRow.getChildAt(0)?.requestFocus()
-    }
-
-    @Deprecated("Home screen: Back does nothing here.")
-    override fun onBackPressed() {
-        // Close a menu if one is open; otherwise stay on the home screen.
-        if (overlay != null) closeOverlay()
-    }
-
-    override fun onDestroy() {
-        io.shutdownNow()
-        net.shutdownNow()
-        super.onDestroy()
-    }
-
-    private fun updateGreeting() {
-        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val part = when {
-            h < 12 -> "Good morning"
-            h < 17 -> "Good afternoon"
-            else -> "Good evening"
-        }
-        greeting.text = "$part, ${getString(R.string.user_name)}"
-    }
+    // ---------------------------------------------------------------- app rows
 
     /** Builds the two rows. Skips the work if nothing changed since last time. */
     private fun render(all: List<AppEntry>) {
@@ -246,18 +327,16 @@ class MainActivity : Activity() {
     }
 
     private fun makeTile(app: AppEntry, big: Boolean, isPinned: Boolean): View {
-        val radius = dp(if (big) 12 else 10).toFloat()
+        val radius = dp(if (big) 14 else 11).toFloat()
         val tile = FrameLayout(this)
-        tile.background = GradientDrawable().apply {
-            cornerRadius = radius
-            setColor(if (app.banner != null) app.color else tileColor)
-        }
+        tile.background = Ui.rounded(if (app.banner != null) app.color else getColor(R.color.tile), radius)
         tile.outlineProvider = ViewOutlineProvider.BACKGROUND
         tile.clipToOutline = true
+        tile.elevation = dp(3).toFloat()
         tile.isFocusable = true
         tile.isClickable = true
         tile.contentDescription = if (isPinned) "${app.label}, pinned" else app.label
-        tile.foreground = focusRing(radius)
+        tile.foreground = Ui.focusRing(this, radius)
 
         val banner = copyOf(app.banner)
         if (banner != null) {
@@ -275,7 +354,7 @@ class MainActivity : Activity() {
             col.addView(icon, LinearLayout.LayoutParams(iconSize, iconSize))
             val label = TextView(this)
             label.text = app.label
-            label.setTextColor(textColor)
+            label.setTextColor(getColor(R.color.text))
             label.textSize = if (big) 13f else 9f
             label.maxLines = 1
             label.ellipsize = TextUtils.TruncateAt.END
@@ -285,12 +364,23 @@ class MainActivity : Activity() {
             tile.addView(col, FrameLayout.LayoutParams(-1, -1))
         }
 
+        // A band of light that sweeps across the tile when it gets focus.
+        val shine = View(this)
+        shine.background = GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(0x00FFFFFF, 0x66FFFFFF, 0x00FFFFFF),
+        )
+        shine.rotation = 18f
+        shine.alpha = 0f
+        val shineW = dp(if (big) 70 else 44)
+        tile.addView(shine, FrameLayout.LayoutParams(shineW, dp(if (big) 160 else 100), Gravity.CENTER_VERTICAL))
+
         if (isPinned && big) {
             val dot = View(this)
             dot.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(getColor(R.color.accent))
-                setStroke(dp(2), getColor(R.color.bg))
+                setStroke(dp(2), Color.WHITE)
             }
             val lp = FrameLayout.LayoutParams(dp(12), dp(12), Gravity.TOP or Gravity.END)
             lp.setMargins(0, dp(8), dp(8), 0)
@@ -303,102 +393,68 @@ class MainActivity : Activity() {
             true
         }
         tile.setOnFocusChangeListener { v, has ->
-            animateFocus(v, has, if (big) 1.08f else 1.10f)
-            if (has) showPreview(app)
+            Ui.animateFocus(this, v, has, if (big) 1.10f else 1.12f)
+            v.elevation = dp(if (has) 14 else 3).toFloat()
+            if (has) {
+                sweep(shine, v.width.toFloat())
+                if (big) showFocusLabel(app.label, v) else hideFocusLabel()
+            }
         }
         return tile
     }
 
-    /** Focused: grows, lifts and casts a shadow. 180 ms, ease-out. */
-    private fun animateFocus(v: View, has: Boolean, scale: Float) {
-        val s = if (has) scale else 1f
-        v.animate()
-            .scaleX(s)
-            .scaleY(s)
-            .translationZ(if (has) dp(10).toFloat() else 0f)
-            .setDuration(180)
-            .setInterpolator(ease)
+    private fun sweep(shine: View, tileWidth: Float) {
+        shine.animate().cancel()
+        shine.translationX = -shine.width.toFloat() * 1.5f
+        shine.alpha = 1f
+        shine.animate()
+            .translationX(tileWidth + shine.width)
+            .setDuration(650)
+            .setStartDelay(80)
+            .setInterpolator(Ui.ease)
+            .withEndAction { shine.alpha = 0f }
             .start()
     }
 
-    /** White outline plus a soft light sheen, faded in when the tile is focused. */
-    private fun focusRing(radius: Float): Drawable {
-        val sheen = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0x40FFFFFF, 0x00FFFFFF, 0x00FFFFFF),
-        ).apply { cornerRadius = radius }
-        val ring = GradientDrawable().apply {
-            cornerRadius = radius
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(2), textColor)
-        }
-        return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused), LayerDrawable(arrayOf<Drawable>(sheen, ring)))
-            addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
-            setEnterFadeDuration(180)
-            setExitFadeDuration(180)
+    /** The focused app's name glides under its tile. */
+    private fun showFocusLabel(label: String, tile: View) {
+        focusLabel.text = label
+        focusLabel.post {
+            val target = tile.left + tile.width / 2f - focusLabel.width / 2f
+            if (focusLabel.alpha < 0.5f) {
+                focusLabel.translationX = target
+                focusLabel.translationY = -dp(6).toFloat()
+            }
+            focusLabel.animate().alpha(1f).translationX(target).translationY(0f)
+                .setDuration(220).setInterpolator(Ui.ease).start()
         }
     }
 
-    private fun showPreview(app: AppEntry) {
-        previewName.text = app.label
-
-        val panelTarget = Palette.blend(app.color, Color.BLACK, 0.35f)
-        panelAnim?.cancel()
-        panelAnim = ValueAnimator.ofArgb(panelColor, panelTarget).apply {
-            duration = 300
-            addUpdateListener {
-                panelColor = it.animatedValue as Int
-                panelBg.setColor(panelColor)
-            }
-            start()
-        }
-
-        val glowTarget = Palette.withAlpha(app.color, 0x3A)
-        glowAnim?.cancel()
-        glowAnim = ValueAnimator.ofArgb(glowColor, glowTarget).apply {
-            duration = 400
-            addUpdateListener {
-                glowColor = it.animatedValue as Int
-                glowBg.colors = intArrayOf(glowColor, Color.TRANSPARENT)
-            }
-            start()
-        }
-    }
-
-    private fun launch(app: AppEntry) {
-        val pm = packageManager
-        val intent = pm.getLeanbackLaunchIntentForPackage(app.pkg)
-            ?: pm.getLaunchIntentForPackage(app.pkg)
-            ?: return
-        usage.bump(app.pkg)
-        try {
-            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (e: Exception) {
-            // App could not be opened; stay on the home screen.
-        }
+    private fun hideFocusLabel() {
+        focusLabel.animate().alpha(0f).setDuration(150).start()
     }
 
     /** Last tile of the grid when apps are hidden: opens the list to bring them back. */
     private fun makeHiddenTile(count: Int): View {
-        val radius = dp(10).toFloat()
+        val radius = dp(11).toFloat()
         val tile = TextView(this)
         tile.text = "Hidden ($count)"
         tile.textSize = 10f
         tile.gravity = Gravity.CENTER
         tile.setTextColor(getColor(R.color.muted))
-        tile.background = GradientDrawable().apply {
-            cornerRadius = radius
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(1), getColor(R.color.line))
-        }
+        tile.background = Ui.rounded(0x80FFFFFF.toInt(), radius, dp(1), getColor(R.color.line))
         tile.isFocusable = true
         tile.isClickable = true
-        tile.foreground = focusRing(radius)
-        tile.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.10f) }
+        tile.foreground = Ui.focusRing(this, radius)
+        tile.setOnFocusChangeListener { v, has ->
+            Ui.animateFocus(this, v, has, 1.12f)
+            if (has) hideFocusLabel()
+        }
         tile.setOnClickListener { showHiddenMenu(tile) }
         return tile
     }
+
+    // ---------------------------------------------------------------- hold-OK menu
 
     /** Hold OK on a tile: pin / unpin, or hide. */
     private fun showAppMenu(app: AppEntry, isPinned: Boolean, from: View) {
@@ -441,24 +497,21 @@ class MainActivity : Activity() {
         returnFocus = from
 
         val dim = FrameLayout(this)
-        dim.setBackgroundColor(0x99000000.toInt())
+        dim.setBackgroundColor(0x66000000)
         dim.isClickable = true
         dim.alpha = 0f
 
         val card = LinearLayout(this)
         card.orientation = LinearLayout.VERTICAL
         card.setPadding(dp(22), dp(20), dp(22), dp(20))
-        card.background = GradientDrawable().apply {
-            cornerRadius = dp(20).toFloat()
-            setColor(getColor(R.color.panel))
-            setStroke(dp(1), getColor(R.color.line))
-        }
+        card.background = Ui.rounded(getColor(R.color.panel), dp(22).toFloat(), dp(1), getColor(R.color.line))
+        card.elevation = dp(20).toFloat()
 
         val heading = TextView(this)
         heading.text = title
         heading.textSize = 18f
-        heading.setTextColor(textColor)
-        heading.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        heading.setTextColor(getColor(R.color.text))
+        heading.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         heading.maxLines = 1
         heading.ellipsize = TextUtils.TruncateAt.END
         card.addView(heading, LinearLayout.LayoutParams(-1, -2))
@@ -484,10 +537,11 @@ class MainActivity : Activity() {
         scroll.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         first?.requestFocus()
 
-        card.scaleX = 0.94f
-        card.scaleY = 0.94f
+        card.scaleX = 0.92f
+        card.scaleY = 0.92f
+        card.translationY = dp(12).toFloat()
         dim.animate().alpha(1f).setDuration(180).start()
-        card.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(ease).start()
+        card.animate().scaleX(1f).scaleY(1f).translationY(0f).setDuration(260).setInterpolator(Ui.slide).start()
     }
 
     private fun closeOverlay() {
@@ -511,35 +565,38 @@ class MainActivity : Activity() {
         b.setPadding(dp(16), 0, dp(16), 0)
         b.isFocusable = true
         b.isClickable = true
-        b.background = StateListDrawable().apply {
-            addState(
-                intArrayOf(android.R.attr.state_focused),
-                GradientDrawable().apply {
-                    cornerRadius = radius
-                    setColor(getColor(R.color.accent))
-                },
-            )
-            addState(
-                intArrayOf(),
-                GradientDrawable().apply {
-                    cornerRadius = radius
-                    setColor(getColor(R.color.surface))
-                },
-            )
+        b.background = android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), Ui.rounded(getColor(R.color.accent), radius))
+            addState(intArrayOf(), Ui.rounded(getColor(R.color.surface), radius))
             setEnterFadeDuration(150)
             setExitFadeDuration(150)
         }
         b.setTextColor(
             ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(getColor(R.color.on_accent), textColor),
+                intArrayOf(getColor(R.color.on_accent), getColor(R.color.text)),
             ),
         )
         return b
     }
 
+    // ---------------------------------------------------------------- launching
+
+    private fun launch(app: AppEntry) {
+        val pm = packageManager
+        val intent = pm.getLeanbackLaunchIntentForPackage(app.pkg)
+            ?: pm.getLaunchIntentForPackage(app.pkg)
+            ?: return
+        usage.bump(app.pkg)
+        try {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            // App could not be opened; stay on the home screen.
+        }
+    }
+
     /** Each tile needs its own drawable instance, even when two tiles show the same app. */
     private fun copyOf(d: Drawable?): Drawable? = d?.constantState?.newDrawable(resources)?.mutate() ?: d
 
-    private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
+    private fun dp(v: Int): Int = Ui.dp(this, v)
 }
