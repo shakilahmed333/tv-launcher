@@ -41,7 +41,12 @@ class HomeButtonService : AccessibilityService() {
     }
 
     private fun openLauncher() {
-        val intent = Intent(this, MainActivity::class.java).addFlags(
+        // Opened as a real "home" intent (not by class name), so Android marks
+        // our launcher as the home app and lets Google's drop to the background.
+        val intent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
+            .setPackage(packageName)
+            .addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP,
