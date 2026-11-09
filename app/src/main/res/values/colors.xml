@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bordeaux Night palette -->
+<resources>
+    <color name="bg">#170A0F</color>
+    <color name="surface">#12FFFFFF</color>
+    <color name="line">#1AFFFFFF</color>
+    <color name="tile">#3A1A24</color>
+    <color name="text">#FAF3F4</color>
+    <color name="muted">#BFA6AC</color>
+    <color name="accent">#E07A93</color>
+    <color name="accent2">#E8B98A</color>
+</resources>

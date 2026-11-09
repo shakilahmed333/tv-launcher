@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Launcher</string>
+    <string name="user_name">Shakil</string>
+    <string name="subtitle">Your most used apps are at the top</string>
+    <string name="most_used">Most used</string>
+    <string name="all_apps">All apps</string>
+    <string name="open_hint">Press OK to open</string>
+    <string name="settings">Settings</string>
+</resources>
