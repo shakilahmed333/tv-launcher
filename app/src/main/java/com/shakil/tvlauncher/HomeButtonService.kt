@@ -2,6 +2,7 @@ package com.shakil.tvlauncher
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -17,8 +18,12 @@ import android.view.accessibility.AccessibilityEvent
  */
 class HomeButtonService : AccessibilityService() {
 
+    private var lastRedirect = 0L
+
+    /** Runs when the TV finishes starting up: show our launcher instead of Google's. */
     override fun onServiceConnected() {
-        Log.i(TAG, "Service connected")
+        Log.i(TAG, "Service connected: opening launcher")
+        openLauncher()
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -48,8 +53,21 @@ class HomeButtonService : AccessibilityService() {
         }
     }
 
+    /**
+     * This TV opens Google's launcher by itself (at startup, and sometimes on Back).
+     * Whenever it comes to the front, switch straight to ours.
+     */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Not used yet.
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val pkg = event.packageName?.toString() ?: return
+        Log.d(TAG, "window: $pkg / ${event.className}")
+        if (pkg != GOOGLE_LAUNCHER) return
+
+        val now = SystemClock.uptimeMillis()
+        if (now - lastRedirect < 1500) return // Avoid bouncing back and forth.
+        lastRedirect = now
+        Log.i(TAG, "Google launcher came to the front: switching to ours")
+        openLauncher()
     }
 
     override fun onInterrupt() {
@@ -58,5 +76,6 @@ class HomeButtonService : AccessibilityService() {
 
     companion object {
         private const val TAG = "HomeKey"
+        private const val GOOGLE_LAUNCHER = "com.google.android.apps.tv.launcherx"
     }
 }
