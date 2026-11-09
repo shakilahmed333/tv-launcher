@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -90,6 +91,13 @@ class MainActivity : Activity() {
             val apps = AppRepo.load(this)
             ui.post { if (!isDestroyed) render(apps) }
         }
+    }
+
+    /** Home pressed while we're already open: jump back to the top row. */
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        findViewById<ScrollView>(R.id.scroll).smoothScrollTo(0, 0)
+        favRow.getChildAt(0)?.requestFocus()
     }
 
     @Deprecated("Home screen: Back does nothing here.")
