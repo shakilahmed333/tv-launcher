@@ -53,6 +53,34 @@ class Usage(ctx: Context) {
     }
 }
 
+/** Which apps are pinned to "Most used" (in pin order) and which are hidden. */
+class LayoutPrefs(ctx: Context) {
+    private val prefs = ctx.getSharedPreferences("layout", Context.MODE_PRIVATE)
+
+    fun pinned(): List<String> =
+        (prefs.getString("pinned", "") ?: "").split(',').filter { it.isNotEmpty() }
+
+    fun hidden(): Set<String> = HashSet(prefs.getStringSet("hidden", emptySet()) ?: emptySet())
+
+    fun togglePin(pkg: String) {
+        val list = pinned().toMutableList()
+        if (pkg in list) list.remove(pkg) else list.add(pkg)
+        prefs.edit().putString("pinned", list.joinToString(",")).apply()
+    }
+
+    fun hide(pkg: String) {
+        val list = pinned().filter { it != pkg }
+        prefs.edit()
+            .putStringSet("hidden", hidden() + pkg)
+            .putString("pinned", list.joinToString(","))
+            .apply()
+    }
+
+    fun unhide(pkg: String) {
+        prefs.edit().putStringSet("hidden", hidden() - pkg).apply()
+    }
+}
+
 object Palette {
     const val FALLBACK = 0xFF3A1A24.toInt()
 

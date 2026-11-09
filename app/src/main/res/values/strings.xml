@@ -5,7 +5,7 @@
     <string name="subtitle">Your most used apps are at the top</string>
     <string name="most_used">Most used</string>
     <string name="all_apps">All apps</string>
-    <string name="open_hint">Press OK to open</string>
+    <string name="open_hint">Press OK to open · Hold OK for options</string>
     <string name="settings">Settings</string>
     <string name="city_name">Dhaka</string>
     <string name="weather_loading">Weather loading…</string>

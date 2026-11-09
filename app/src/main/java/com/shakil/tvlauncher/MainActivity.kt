@@ -3,6 +3,7 @@ package com.shakil.tvlauncher
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -16,6 +17,7 @@ import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
@@ -35,6 +37,11 @@ class MainActivity : Activity() {
     private val ease = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
 
     private lateinit var usage: Usage
+    private lateinit var layoutPrefs: LayoutPrefs
+    private lateinit var scroll: ScrollView
+    private var apps: List<AppEntry> = emptyList()
+    private var overlay: View? = null
+    private var returnFocus: View? = null
     private lateinit var greeting: TextView
     private lateinit var favRow: LinearLayout
     private lateinit var grid: GridLayout
@@ -67,6 +74,8 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         usage = Usage(this)
+        layoutPrefs = LayoutPrefs(this)
+        scroll = findViewById(R.id.scroll)
         textColor = getColor(R.color.text)
         tileColor = getColor(R.color.tile)
         greeting = findViewById(R.id.greeting)
@@ -156,13 +165,15 @@ class MainActivity : Activity() {
     /** Home pressed while we're already open: jump back to the top row. */
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        findViewById<ScrollView>(R.id.scroll).smoothScrollTo(0, 0)
+        closeOverlay()
+        scroll.smoothScrollTo(0, 0)
         favRow.getChildAt(0)?.requestFocus()
     }
 
     @Deprecated("Home screen: Back does nothing here.")
     override fun onBackPressed() {
-        // Stay on the home screen.
+        // Close a menu if one is open; otherwise stay on the home screen.
+        if (overlay != null) closeOverlay()
     }
 
     override fun onDestroy() {
@@ -182,11 +193,21 @@ class MainActivity : Activity() {
     }
 
     /** Builds the two rows. Skips the work if nothing changed since last time. */
-    private fun render(apps: List<AppEntry>) {
-        val favs = apps
+    private fun render(all: List<AppEntry>) {
+        apps = all
+        val hidden = layoutPrefs.hidden()
+        val pinned = layoutPrefs.pinned()
+        val visible = all.filter { it.pkg !in hidden }
+
+        // Pinned apps first (in the order they were pinned), then the most opened.
+        val pinnedApps = pinned.mapNotNull { pkg -> visible.find { it.pkg == pkg } }
+        val rest = visible
+            .filter { it.pkg !in pinned }
             .sortedWith(compareByDescending<AppEntry> { usage.count(it.pkg) }.thenBy { it.label.lowercase() })
-            .take(5)
-        val key = favs.joinToString(",") { it.pkg } + "|" + apps.joinToString(",") { it.pkg }
+        val favs = (pinnedApps + rest).take(5)
+
+        val key = favs.joinToString(",") { it.pkg } + "|" + visible.joinToString(",") { it.pkg } +
+            "|" + pinned.joinToString(",") + "|" + hidden.sorted().joinToString(",")
         if (key == lastKey) return
         lastKey = key
 
@@ -194,22 +215,32 @@ class MainActivity : Activity() {
         favs.forEachIndexed { i, app ->
             val lp = LinearLayout.LayoutParams(dp(160), dp(90))
             if (i < favs.size - 1) lp.marginEnd = dp(16)
-            favRow.addView(makeTile(app, big = true), lp)
+            favRow.addView(makeTile(app, big = true, isPinned = app.pkg in pinned), lp)
         }
 
         grid.removeAllViews()
-        apps.forEachIndexed { i, app ->
-            val lp = GridLayout.LayoutParams()
-            lp.width = dp(96)
-            lp.height = dp(54)
-            lp.setMargins(0, 0, if (i % 8 != 7) dp(12) else 0, dp(12))
-            grid.addView(makeTile(app, big = false), lp)
-        }
+        visible.forEach { app -> grid.addView(makeTile(app, big = false, isPinned = app.pkg in pinned), gridParams()) }
+        if (hidden.isNotEmpty()) grid.addView(makeHiddenTile(hidden.size), gridParams())
 
-        favRow.getChildAt(0)?.requestFocus()
+        if (overlay == null) favRow.getChildAt(0)?.requestFocus()
     }
 
-    private fun makeTile(app: AppEntry, big: Boolean): View {
+    private fun gridParams(): GridLayout.LayoutParams {
+        val i = grid.childCount
+        val lp = GridLayout.LayoutParams()
+        lp.width = dp(96)
+        lp.height = dp(54)
+        lp.setMargins(0, 0, if (i % 8 != 7) dp(12) else 0, dp(12))
+        return lp
+    }
+
+    /** Forces a rebuild after pinning or hiding. */
+    private fun rerender() {
+        lastKey = ""
+        render(apps)
+    }
+
+    private fun makeTile(app: AppEntry, big: Boolean, isPinned: Boolean): View {
         val radius = dp(if (big) 12 else 10).toFloat()
         val tile = FrameLayout(this)
         tile.background = GradientDrawable().apply {
@@ -220,7 +251,7 @@ class MainActivity : Activity() {
         tile.clipToOutline = true
         tile.isFocusable = true
         tile.isClickable = true
-        tile.contentDescription = app.label
+        tile.contentDescription = if (isPinned) "${app.label}, pinned" else app.label
         tile.foreground = focusRing(radius)
 
         val banner = copyOf(app.banner)
@@ -249,7 +280,23 @@ class MainActivity : Activity() {
             tile.addView(col, FrameLayout.LayoutParams(-1, -1))
         }
 
+        if (isPinned && big) {
+            val dot = View(this)
+            dot.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(getColor(R.color.accent))
+                setStroke(dp(2), getColor(R.color.bg))
+            }
+            val lp = FrameLayout.LayoutParams(dp(12), dp(12), Gravity.TOP or Gravity.END)
+            lp.setMargins(0, dp(8), dp(8), 0)
+            tile.addView(dot, lp)
+        }
+
         tile.setOnClickListener { launch(app) }
+        tile.setOnLongClickListener {
+            showAppMenu(app, isPinned, tile)
+            true
+        }
         tile.setOnFocusChangeListener { v, has ->
             animateFocus(v, has, if (big) 1.08f else 1.10f)
             if (has) showPreview(app)
@@ -325,6 +372,165 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             // App could not be opened; stay on the home screen.
         }
+    }
+
+    /** Last tile of the grid when apps are hidden: opens the list to bring them back. */
+    private fun makeHiddenTile(count: Int): View {
+        val radius = dp(10).toFloat()
+        val tile = TextView(this)
+        tile.text = "Hidden ($count)"
+        tile.textSize = 10f
+        tile.gravity = Gravity.CENTER
+        tile.setTextColor(getColor(R.color.muted))
+        tile.background = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(Color.TRANSPARENT)
+            setStroke(dp(1), getColor(R.color.line))
+        }
+        tile.isFocusable = true
+        tile.isClickable = true
+        tile.foreground = focusRing(radius)
+        tile.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.10f) }
+        tile.setOnClickListener { showHiddenMenu(tile) }
+        return tile
+    }
+
+    /** Hold OK on a tile: pin / unpin, or hide. */
+    private fun showAppMenu(app: AppEntry, isPinned: Boolean, from: View) {
+        val pinLabel = if (isPinned) "Unpin from Most used" else "Pin to Most used"
+        showOverlay(
+            app.label,
+            listOf(
+                pinLabel to {
+                    layoutPrefs.togglePin(app.pkg)
+                    rerender()
+                },
+                "Hide app" to {
+                    layoutPrefs.hide(app.pkg)
+                    rerender()
+                },
+                "Cancel" to {},
+            ),
+            from,
+        )
+    }
+
+    private fun showHiddenMenu(from: View) {
+        val hidden = layoutPrefs.hidden()
+        val buttons = ArrayList<Pair<String, () -> Unit>>()
+        apps.filter { it.pkg in hidden }.forEach { app ->
+            buttons.add(
+                "Show ${app.label}" to {
+                    layoutPrefs.unhide(app.pkg)
+                    rerender()
+                },
+            )
+        }
+        buttons.add("Close" to {})
+        showOverlay("Hidden apps", buttons, from)
+    }
+
+    /** A small centred menu that fades and scales in over a dimmed screen. */
+    private fun showOverlay(title: String, buttons: List<Pair<String, () -> Unit>>, from: View?) {
+        overlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        returnFocus = from
+
+        val dim = FrameLayout(this)
+        dim.setBackgroundColor(0x99000000.toInt())
+        dim.isClickable = true
+        dim.alpha = 0f
+
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.setPadding(dp(22), dp(20), dp(22), dp(20))
+        card.background = GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            setColor(getColor(R.color.panel))
+            setStroke(dp(1), getColor(R.color.line))
+        }
+
+        val heading = TextView(this)
+        heading.text = title
+        heading.textSize = 18f
+        heading.setTextColor(textColor)
+        heading.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        heading.maxLines = 1
+        heading.ellipsize = TextUtils.TruncateAt.END
+        card.addView(heading, LinearLayout.LayoutParams(-1, -2))
+
+        var first: View? = null
+        for ((label, action) in buttons) {
+            val b = menuButton(label)
+            b.setOnClickListener {
+                closeOverlay()
+                action()
+            }
+            val lp = LinearLayout.LayoutParams(-1, dp(44))
+            lp.topMargin = dp(8)
+            card.addView(b, lp)
+            if (first == null) first = b
+        }
+
+        dim.addView(card, FrameLayout.LayoutParams(dp(320), -2, Gravity.CENTER))
+        findViewById<ViewGroup>(android.R.id.content).addView(dim, ViewGroup.LayoutParams(-1, -1))
+        overlay = dim
+
+        // Keep the remote's focus inside the menu.
+        scroll.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        first?.requestFocus()
+
+        card.scaleX = 0.94f
+        card.scaleY = 0.94f
+        dim.animate().alpha(1f).setDuration(180).start()
+        card.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(ease).start()
+    }
+
+    private fun closeOverlay() {
+        val o = overlay ?: return
+        overlay = null
+        scroll.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        o.animate().alpha(0f).setDuration(140).withEndAction {
+            (o.parent as? ViewGroup)?.removeView(o)
+        }.start()
+        val back = returnFocus
+        returnFocus = null
+        if (back != null && back.isAttachedToWindow) back.requestFocus() else favRow.getChildAt(0)?.requestFocus()
+    }
+
+    private fun menuButton(text: String): TextView {
+        val radius = dp(12).toFloat()
+        val b = TextView(this)
+        b.text = text
+        b.textSize = 14f
+        b.gravity = Gravity.CENTER_VERTICAL
+        b.setPadding(dp(16), 0, dp(16), 0)
+        b.isFocusable = true
+        b.isClickable = true
+        b.background = StateListDrawable().apply {
+            addState(
+                intArrayOf(android.R.attr.state_focused),
+                GradientDrawable().apply {
+                    cornerRadius = radius
+                    setColor(getColor(R.color.accent))
+                },
+            )
+            addState(
+                intArrayOf(),
+                GradientDrawable().apply {
+                    cornerRadius = radius
+                    setColor(getColor(R.color.surface))
+                },
+            )
+            setEnterFadeDuration(150)
+            setExitFadeDuration(150)
+        }
+        b.setTextColor(
+            ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
+                intArrayOf(getColor(R.color.on_accent), textColor),
+            ),
+        )
+        return b
     }
 
     /** Each tile needs its own drawable instance, even when two tiles show the same app. */
