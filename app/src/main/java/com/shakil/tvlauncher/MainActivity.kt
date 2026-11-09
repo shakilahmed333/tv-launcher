@@ -30,6 +30,7 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
 
     private val io = Executors.newSingleThreadExecutor()
+    private val net = Executors.newSingleThreadExecutor() // Weather; never delays the app list.
     private val ui = Handler(Looper.getMainLooper())
     private val ease = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
 
@@ -38,6 +39,17 @@ class MainActivity : Activity() {
     private lateinit var favRow: LinearLayout
     private lateinit var grid: GridLayout
     private lateinit var previewName: TextView
+    private lateinit var weatherIcon: ImageView
+    private lateinit var weatherTemp: TextView
+    private lateinit var weatherLabel: TextView
+    private lateinit var weatherChips: LinearLayout
+    private var weatherAt = 0L
+    private val weatherTick = object : Runnable {
+        override fun run() {
+            refreshWeather()
+            ui.postDelayed(this, WeatherRepo.REFRESH_MS)
+        }
+    }
 
     private val panelBg = GradientDrawable()
     private val glowBg = GradientDrawable()
@@ -61,6 +73,10 @@ class MainActivity : Activity() {
         favRow = findViewById(R.id.favRow)
         grid = findViewById(R.id.grid)
         previewName = findViewById(R.id.previewName)
+        weatherIcon = findViewById(R.id.weatherIcon)
+        weatherTemp = findViewById(R.id.weatherTemp)
+        weatherLabel = findViewById(R.id.weatherLabel)
+        weatherChips = findViewById(R.id.weatherChips)
 
         panelColor = tileColor
         panelBg.cornerRadius = dp(16).toFloat()
@@ -87,9 +103,53 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateGreeting()
+        ui.removeCallbacks(weatherTick)
+        ui.post(weatherTick)
         io.execute {
             val apps = AppRepo.load(this)
             ui.post { if (!isDestroyed) render(apps) }
+        }
+    }
+
+    override fun onPause() {
+        ui.removeCallbacks(weatherTick)
+        super.onPause()
+    }
+
+    /** Shows the cached weather at once, then fetches fresh data if it's over 30 minutes old. */
+    private fun refreshWeather() {
+        net.execute {
+            val cached = WeatherRepo.cached(this)
+            if (cached != null) ui.post { if (!isDestroyed) showWeather(cached) }
+            val stale = cached == null || System.currentTimeMillis() - cached.fetchedAt > WeatherRepo.REFRESH_MS
+            if (stale) {
+                val fresh = WeatherRepo.fetch(this)
+                if (fresh != null) ui.post { if (!isDestroyed) showWeather(fresh) }
+            }
+        }
+    }
+
+    private fun showWeather(w: Weather) {
+        if (w.fetchedAt == weatherAt) return
+        weatherAt = w.fetchedAt
+        weatherIcon.setImageResource(w.iconRes)
+        weatherTemp.text = "${w.temp}°"
+        weatherLabel.text = "${w.label} · ${getString(R.string.city_name)}"
+
+        weatherChips.removeAllViews()
+        w.upcoming.forEachIndexed { i, (time, temp) ->
+            val chip = TextView(this)
+            chip.text = "$time  $temp°"
+            chip.textSize = 10f
+            chip.setTextColor(getColor(R.color.muted))
+            chip.setPadding(dp(8), dp(4), dp(8), dp(4))
+            chip.background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(getColor(R.color.surface))
+            }
+            val lp = LinearLayout.LayoutParams(-2, -2)
+            if (i > 0) lp.marginStart = dp(6)
+            weatherChips.addView(chip, lp)
         }
     }
 
@@ -107,6 +167,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         io.shutdownNow()
+        net.shutdownNow()
         super.onDestroy()
     }
 
