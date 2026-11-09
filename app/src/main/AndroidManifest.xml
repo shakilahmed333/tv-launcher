@@ -3,6 +3,8 @@
 
     <!-- Only used to fetch the weather. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only used to show "Wi-Fi connected" in the control panel. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -49,6 +51,16 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Own task, so it opens over the current app instead of over the home screen. -->
+        <activity
+            android:name=".ControlPanelActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=":panel"
+            android:theme="@style/ControlPanel" />
 
         <!-- Catches the remote's Home button (see HomeButtonService.kt). -->
         <service

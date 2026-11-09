@@ -101,6 +101,11 @@ class MainActivity : Activity() {
         glowBg.colors = intArrayOf(glowColor, Color.TRANSPARENT)
         findViewById<View>(R.id.glow).background = glowBg
 
+        val panelBtn = findViewById<View>(R.id.panelBtn)
+        panelBtn.foreground = focusRing(dp(17).toFloat())
+        panelBtn.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.12f) }
+        panelBtn.setOnClickListener { startActivity(Intent(this, ControlPanelActivity::class.java)) }
+
         val settings = findViewById<View>(R.id.settingsBtn)
         settings.foreground = focusRing(dp(17).toFloat())
         settings.setOnFocusChangeListener { v, has -> animateFocus(v, has, 1.12f) }

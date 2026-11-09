@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Control panel: slides in from the right over whatever is on screen. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dim"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#80000000">
+
+    <LinearLayout
+        android:id="@+id/panel"
+        android:layout_width="320dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:padding="22dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/control_panel"
+                android:textColor="@color/text"
+                android:textSize="19sp" />
+
+            <TextClock
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="h:mm"
+                android:format24Hour="H:mm"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Volume -->
+        <LinearLayout
+            android:id="@+id/volumeCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/card"
+            android:clipChildren="false"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/volume"
+                    android:textColor="@color/text"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/volumeValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/volumeControls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:clipChildren="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/volDown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="@string/volume_down"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:text="−"
+                    android:textColor="@color/text"
+                    android:textSize="18sp" />
+
+                <FrameLayout
+                    android:id="@+id/volTrack"
+                    android:layout_width="0dp"
+                    android:layout_height="7dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp"
+                    android:layout_weight="1">
+
+                    <View
+                        android:id="@+id/volFill"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/volUp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="@string/volume_up"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:text="+"
+                    android:textColor="@color/text"
+                    android:textSize="18sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/volumeFixedNote"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/volume_fixed"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Shortcuts, 2 x 2 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="74dp"
+            android:layout_marginTop="12dp"
+            android:clipChildren="false"
+            android:orientation="horizontal">
+
+            <include
+                android:id="@+id/tileNetwork"
+                layout="@layout/panel_tile"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="10dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/tileRemotes"
+                layout="@layout/panel_tile"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="74dp"
+            android:layout_marginTop="10dp"
+            android:clipChildren="false"
+            android:orientation="horizontal">
+
+            <include
+                android:id="@+id/tileDisplay"
+                layout="@layout/panel_tile"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="10dp"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/tileApps"
+                layout="@layout/panel_tile"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/allSettings"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:text="@string/all_settings"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>

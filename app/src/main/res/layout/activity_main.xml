@@ -67,6 +67,17 @@
                         android:textSize="11sp" />
                 </LinearLayout>
 
+                <ImageView
+                    android:id="@+id/panelBtn"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/card"
+                    android:contentDescription="@string/control_panel"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_panel" />
+
                 <TextView
                     android:id="@+id/settingsBtn"
                     android:layout_width="34dp"
